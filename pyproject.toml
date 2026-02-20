@@ -1,0 +1,13 @@
+[project]
+name = "comfyui-pulse-meshaudit"
+description = "Visualization tools and audit for 3D assets running on your GPU (Vulkan or CUDA (WIP)). Linux only for now!"
+version = "0.0.1"
+license = {file = "LICENSE"}
+
+[project.urls]
+Repository = "https://github.com/krishnancr/ComfyUI-Pulse-MeshAudit"
+
+[tool.comfy]
+PublisherId = "pulse"
+DisplayName = "MeshAudit"
+Icon = ""

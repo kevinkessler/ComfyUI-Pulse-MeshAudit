@@ -48,6 +48,9 @@ Thumbs.db
 *.orig
 *.backup
 
+# Jupyter
+.ipynb_checkpoints/
+
 # Test/dev artifacts
 .pytest_cache/
 .coverage
