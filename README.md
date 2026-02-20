@@ -231,7 +231,15 @@ Contributions welcome! Please:
 
 ## License
 
-This project is licensed under the MIT License — see LICENSE file for details.
+This project is licensed under the **MIT License with Commons Clause** — see LICENSE file for details.
+
+**Summary:**
+- ✅ **Free for non-commercial use** — Personal projects, education, research
+- ✅ **Open source** — View, modify, and distribute source code
+- ❌ **Commercial use restricted** — Requires explicit written permission
+- 📧 **Commercial inquiries** — Contact the licensor for a commercial license
+
+The Commons Clause prevents commercial use without explicit consent while keeping the software free and open for everyone else.
 
 ## Credits
 
