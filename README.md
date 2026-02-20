@@ -1,6 +1,6 @@
 # ComfyUI Pulse MeshAudit
 
-A ComfyUI custom node for auditing 3D mesh files by rendering them with [agnirt](https://github.com/pulze/agnirt) headless renderer and displaying an interactive carousel of renders with detailed mesh statistics.
+A ComfyUI custom node for auditing 3D mesh files by rendering them with a headless renderer and displaying an interactive carousel of renders with detailed mesh statistics.
 
 ## Features
 
@@ -68,7 +68,7 @@ python3 main.py
 
 1. **Add PulseMeshAudit node** to canvas
 2. **Set file_path** to your mesh file:
-   - Supported: `.glb`, `.obj`, `.gltf`, `.fbx`
+   - Supported: `.glb`, `.obj`, `.gltf`
 3. **Execute node** (Ctrl+Enter or click execute button)
 4. **View renders**:
    - Hover over images for outline highlight
