@@ -158,20 +158,29 @@ class PulseMeshAudit:
         # agnirt creates audit_log_<name>_<timestamp>.json, find the latest one
         asset_stats = None
         import glob
-        audit_logs = glob.glob(os.path.join(temp_dir, "audit_log_*.json"))
-        print(f"[MeshAudit] Temp dir: {temp_dir}")
-        print(f"[MeshAudit] Found audit logs: {audit_logs}")
-        if audit_logs:
-            # Use the most recently created audit_log
-            audit_log_path = max(audit_logs, key=os.path.getctime)
-            print(f"[MeshAudit] Parsing audit log: {audit_log_path}")
+
+        # Try multiple possible locations for audit_log
+        possible_temps = [
+            temp_dir,
+            "/home/krishnan/ai_lab/apps/ComfyUI/temp",
+            os.path.expanduser("~/ai_lab/apps/ComfyUI/temp"),
+        ]
+
+        audit_log_path = None
+        for search_dir in possible_temps:
+            if os.path.isdir(search_dir):
+                audit_logs = glob.glob(os.path.join(search_dir, "audit_log_*.json"))
+                if audit_logs:
+                    audit_log_path = max(audit_logs, key=os.path.getctime)
+                    break
+
+        if audit_log_path:
+            print(f"[MeshAudit] Found audit log: {audit_log_path}")
             asset_stats = _parse_audit_log(audit_log_path, len(MODES) * len(CAMERAS))
-            print(f"[MeshAudit] Asset stats result: {asset_stats}")
+            if asset_stats:
+                print(f"[MeshAudit] Parsed stats: {asset_stats['scene']['name']}")
         else:
-            print(f"[MeshAudit] Note: audit_log_*.json not found in {temp_dir}")
-            # List all files in temp dir for debugging
-            all_files = os.listdir(temp_dir)
-            print(f"[MeshAudit] Files in temp_dir: {all_files[:10]}")
+            print(f"[MeshAudit] Could not find audit_log in any temp directory")
 
         response = {
             "ui": {
@@ -182,7 +191,7 @@ class PulseMeshAudit:
 
         # Add asset_stats if parsing succeeded
         if asset_stats:
-            response["ui"]["asset_stats"] = asset_stats
+            response["ui"]["asset_stats"] = [asset_stats]
 
         return response
 

@@ -136,6 +136,12 @@ app.registerExtension({
             const labels = msg.mesh_audit_carousel[0].labels;
             const images = msg.images;
 
+            // Extract asset_stats from list wrapper if present
+            let assetStats = null;
+            if (msg.asset_stats && Array.isArray(msg.asset_stats) && msg.asset_stats.length > 0) {
+                assetStats = msg.asset_stats[0];
+            }
+
             // Suppress ComfyUI default image preview
             Object.defineProperty(this, "imgs", {
                 get: () => [],
@@ -315,18 +321,18 @@ app.registerExtension({
             let widgetElement = container;
 
             // If stats available, create flex layout with accordion
-            if (msg.asset_stats && msg.asset_stats.scene && msg.asset_stats.geometry && msg.asset_stats.quality_metrics) {
+            if (assetStats && assetStats.scene && assetStats.geometry && assetStats.quality_metrics) {
                 const mainContainer = document.createElement("div");
-                mainContainer.style.cssText = "display:flex; gap:15px; width:100%; box-sizing:border-box; align-items:flex-start;";
+                mainContainer.style.cssText = "display:flex; flex-wrap:wrap; gap:15px; width:100%; box-sizing:border-box; align-items:flex-start;";
 
                 const carouselWrapper = document.createElement("div");
-                carouselWrapper.style.cssText = "flex:1; min-width:0;";
+                carouselWrapper.style.cssText = "flex:1 1 400px; min-width:300px;";
                 carouselWrapper.appendChild(container);
 
                 const statsWrapper = document.createElement("div");
-                statsWrapper.style.cssText = "flex:0 0 320px;";
+                statsWrapper.style.cssText = "flex:1 1 250px; min-width:250px;";
                 try {
-                    const accordion = buildAssetStatsAccordion(msg.asset_stats);
+                    const accordion = buildAssetStatsAccordion(assetStats);
                     statsWrapper.appendChild(accordion);
                 } catch (e) {
                     console.error("[MeshAudit] Error building accordion:", e);
