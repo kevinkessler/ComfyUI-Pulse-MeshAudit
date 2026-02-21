@@ -107,6 +107,10 @@ class PulseMeshAudit:
     FUNCTION = "execute"
 
     def execute(self, file_path):
+        # Resolve relative paths against ComfyUI's input directory
+        if not os.path.isabs(file_path):
+            file_path = os.path.join(folder_paths.get_input_directory(), file_path)
+
         if not os.path.isfile(file_path):
             raise FileNotFoundError(f"Mesh file not found: {file_path}")
 
