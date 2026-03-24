@@ -123,12 +123,8 @@ Contributions welcome! Please:
 4. Push to branch: `git push origin feature/your-feature`
 5. Open a Pull Request
 
-## License
-
-**MIT License with Commons Clause**
-
-Free for non-commercial use. Commercial use requires explicit written permission.
 
 See [LICENSE](LICENSE) file for full details.
 
-
+## Citing this Work
+    If you use this node in your YouTube videos or commercial workflows, please include a link to this repo and credit it as: "Pulse - MeshAudit by Krishnan Ramachandran"
