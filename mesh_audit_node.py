@@ -129,10 +129,19 @@ class PulseMeshAudit:
         temp_dir = folder_paths.get_temp_directory()
         output_base = os.path.join(temp_dir, f"ma_{run_id}.png")
 
-        # Need lib dir on LD_LIBRARY_PATH for libcrt_vulkan.so
+        # Need lib dir on LD_LIBRARY_PATH for libcrt_vulkan.so and system OIDN + ROCm
         env = os.environ.copy()
         prev_ldpath = env.get("LD_LIBRARY_PATH", "")
-        env["LD_LIBRARY_PATH"] = f"{AGNIRT_DIR}:{prev_ldpath}" if prev_ldpath else AGNIRT_DIR
+        ldpath_parts = [AGNIRT_DIR, "/usr/lib64", "/opt/rocm/lib"]
+        if prev_ldpath:
+            ldpath_parts.append(prev_ldpath)
+        env["LD_LIBRARY_PATH"] = ":".join(ldpath_parts)
+
+        # OIDN shim: redirect oidnNewDeviceByUUID to HIP device for AMD GPU support
+        oidn_shim = os.path.join(AGNIRT_DIR, "oidn_cpu_shim.so")
+        if os.path.isfile(oidn_shim):
+            prev_preload = env.get("LD_PRELOAD", "")
+            env["LD_PRELOAD"] = f"{oidn_shim}:{prev_preload}" if prev_preload else oidn_shim
 
         print("[MeshAudit] Starting agnirt...")
         proc = subprocess.Popen(
@@ -193,8 +202,7 @@ class PulseMeshAudit:
         # Try multiple possible locations for audit_log
         possible_temps = [
             temp_dir,
-            "/home/krishnan/ai_lab/apps/ComfyUI/temp",
-            os.path.expanduser("~/ai_lab/apps/ComfyUI/temp"),
+            AGNIRT_DIR,  # agnirt may write audit_log.json to its working directory
         ]
 
         audit_log_path = None

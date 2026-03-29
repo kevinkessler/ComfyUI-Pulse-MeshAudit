@@ -1,130 +1,120 @@
-# ComfyUI Pulse MeshAudit
+# ComfyUI Pulse MeshAudit (AMD/ROCm Fork)
 
-A ComfyUI custom node for auditing 3D mesh files by rendering them with a headless renderer and displaying an interactive carousel of renders with detailed mesh statistics.
+A ComfyUI custom node for auditing 3D mesh files by rendering them with a headless Vulkan renderer and displaying an interactive carousel of renders with detailed mesh statistics.
+
+**This fork adds AMD GPU support** for systems running ROCm (e.g., Radeon RX 7000 series, Radeon 8060S / Strix Halo). The upstream version only bundles an NVIDIA CUDA-based OIDN denoiser, which crashes on AMD hardware.
+
+## Changes from Upstream
+
+### Problem
+
+The upstream `agnirt` renderer bundles OpenImageDenoise (OIDN) 2.3.3 with only a CUDA device plugin. On AMD GPUs:
+
+1. The bundled OIDN 2.3.3 cannot create any device (not even CPU) — it appears to be a broken build
+2. `agnirt` calls `oidnNewDeviceByUUID()` to create a GPU-matched denoiser, which requires a working device plugin
+3. `agnirt` crashes fatally (`std::runtime_error: Failed to create OIDN device`) on startup, preventing all rendering — not just path tracing
+4. The `comfy-env.toml` specifies Debian/Ubuntu package names (`libvulkan1`) which don't work on Fedora/RHEL
+
+### Solution
+
+This fork makes three changes:
+
+1. **OIDN HIP shim** (`bin/linux-x64/oidn_cpu_shim.so` + `.c` source): An `LD_PRELOAD` library that intercepts `oidnNewDeviceByUUID()` and redirects it to create an OIDN HIP device (AMD GPU) with CPU fallback. This works with the system-installed OIDN 2.4.0+ which includes HIP support.
+
+2. **Updated `mesh_audit_node.py`**:
+   - Adds `/usr/lib64` and `/opt/rocm/lib` to `LD_LIBRARY_PATH` so the system OIDN and ROCm HIP runtime are found
+   - Sets `LD_PRELOAD` to load the OIDN shim automatically when present
+   - Removes hardcoded developer home directory paths from the audit log search
+
+3. **Bundled OIDN 2.3.3 moved to `bin/linux-x64/oidn_bundled_backup/`** to prevent the broken libraries from being loaded. The system OIDN (installed via package manager) is used instead.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `mesh_audit_node.py` | AMD library paths, LD_PRELOAD shim, removed hardcoded paths |
+| `bin/linux-x64/oidn_cpu_shim.c` | New — OIDN HIP shim source |
+| `bin/linux-x64/oidn_cpu_shim.so` | New — compiled shim |
+| `bin/linux-x64/oidn_bundled_backup/` | Moved broken bundled OIDN libs here |
 
 ## Features
 
-✨ **16-Render Carousel**
-- 4 camera angles (Perspective, Front, Right, Left)
-- 4 shading modes (Path Trace, Wireframe, Geometry Analysis, Sliver Triangles)
-- Auto-resizing grid layout with intuitive modal viewer
-
-🖼️ **Interactive Image Viewer**
-- Click any render to view fullscreen in centered modal
-- Navigate with **← →** arrow keys to explore different views
-- **ESC** key or **✕** button to close
-
-📊 **Asset Statistics Panel**
-- Collapsible accordion with three categories:
-  - **Scene Metadata**: Asset name, timestamp
-  - **Geometry Stats**: Edge count, face count, vertex count
-  - **Quality Metrics**: Degenerate/sliver/inverted triangle percentages
-- Dark-themed UI matching carousel design
-- Responsive layout that adapts to node size
-
-🔍 **Pathtracer Integration**
-- Uses bundled headless renderer binary
-- Generates 16 PNG renders per execution
+- **16-Render Carousel**: 4 camera angles x 4 shading modes (Path Trace, Wireframe, Geometry Analysis, Sliver Triangles)
+- **Interactive Image Viewer**: Click to fullscreen, arrow key navigation
+- **Asset Statistics Panel**: Scene metadata, geometry stats, quality metrics
+- **Pathtracer with HIP-accelerated denoising** on AMD GPUs
 
 ## Platform Support
 
 | Platform | Status | GPU Requirement |
 |----------|--------|----------------|
 | Linux x64 (Ubuntu/Debian) | Supported | Vulkan-capable GPU |
+| Linux x64 (Fedora/RHEL + AMD GPU) | Supported (this fork) | AMD GPU with ROCm + Vulkan |
 | Windows x64 | Supported | Vulkan-capable GPU |
 
-## Screenshots
+## Installation on Fedora / AMD ROCm
 
-![MeshAudit Carousel View](docs/MeshAudit-0.png)
+### Prerequisites
 
-![MeshAudit Render Example 1](docs/MeshAudit-1.png)
+- ComfyUI installed and working
+- AMD GPU with ROCm and Vulkan support
+- Python 3.8+
 
-![MeshAudit Render Example 2](docs/MeshAudit-2.png)
+### Steps
 
-![MeshAudit Render Example 3](docs/MeshAudit-3.png)
+1. **Install system dependencies:**
 
-## Installation
+```bash
+# Vulkan driver (provides RADV ICD for AMD GPUs)
+sudo dnf install -y mesa-vulkan-drivers
 
-### Requirements
+# OpenImageDenoise with HIP support (replaces broken bundled OIDN)
+sudo dnf install -y oidn-libs
+```
 
-- **ComfyUI** (latest)
-- **Python 3.8+**
-- **Vulkan-capable GPU** (NVIDIA, AMD, or Intel) with up-to-date drivers
-- **~500MB** disk space for binary and assets
-- **Windows only:** [Visual C++ 2015-2022 Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) (usually pre-installed)
-- **Linux only:** `libvulkan1` — see manual install steps below
-
-### Via ComfyUI Manager
-
-1. Open ComfyUI Manager
-2. Search for **"Pulse MeshAudit"**
-3. Click **Install**
-
-ComfyUI Manager automatically installs `libvulkan1` on Linux via `comfy-env.toml`. No extra steps needed on Windows.
-
-### Manual Install
-
-1. **Clone into ComfyUI custom_nodes:**
+2. **Clone into ComfyUI custom_nodes:**
 
 ```bash
 cd /path/to/ComfyUI/custom_nodes
-git clone https://github.com/krishnancr/ComfyUI-Pulse-MeshAudit.git
-cd ComfyUI-Pulse-MeshAudit
+git clone git@github.com:kevinkessler/ComfyUI-Pulse-MeshAudit.git comfyui-pulse-meshaudit
 ```
 
-2. **Install Vulkan runtime (Linux only):**
+3. **Rebuild the OIDN shim** (optional — precompiled `.so` is included):
 
 ```bash
-sudo apt install libvulkan1
+cd comfyui-pulse-meshaudit/bin/linux-x64
+gcc -shared -fPIC -o oidn_cpu_shim.so oidn_cpu_shim.c -ldl
 ```
 
-> **Windows:** Vulkan is provided by your GPU drivers — no extra install needed. If you see a missing DLL error on launch, install the [VC++ 2015-2022 Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe).
+4. **Restart ComfyUI** and search for the **PulseMeshAudit** node under **Pulse/MeshAudit**.
 
-3. **Restart ComfyUI:**
+### Verification
+
+You can test the renderer directly:
 
 ```bash
-# From ComfyUI root
-python3 main.py
+cd /path/to/ComfyUI/custom_nodes/comfyui-pulse-meshaudit/bin/linux-x64
+export LD_LIBRARY_PATH="$(pwd):/usr/lib64:/opt/rocm/lib"
+LD_PRELOAD=./oidn_cpu_shim.so ./agnirt vulkan ../../assets/cannon_generated.glb \
+    -headless -shading-mode all \
+    --camera perspective front right left \
+    -env ../../assets/sunny_rose_garden_4k.exr \
+    -o /tmp/test_render
 ```
 
-4. **Verify installation:**
-   - In ComfyUI, search for **"PulseMeshAudit"** node
-   - Node should appear under **Pulse/MeshAudit** category
+Expected: 16 output images and an `audit_log_*.json` file.
 
 ## Usage
 
-### Basic Workflow
+1. Add **PulseMeshAudit** node to canvas
+2. Set `file_path` to a mesh file (`.glb`, `.obj`, `.gltf`)
+3. Execute the node
+4. View the 16-render carousel and mesh statistics
 
-1. **Add PulseMeshAudit node** to canvas
-2. **Set file_path** to your mesh file:
-   - Supported: `.glb`, `.obj`, `.gltf`
-3. **Execute node** (Ctrl+Enter or click execute button)
-4. **View renders**:
-   - Hover over images for outline highlight
-   - Click any image to view fullscreen
-   - Use arrow keys to navigate between views
-5. **Inspect stats**:
-   - Click "Asset Stats" header to expand/collapse
-   - View scene metadata, geometry counts, quality metrics
+## Upstream
 
-### Example Mesh Files
-
-Test with assets/ArmoredWarrior_00005_.glb 
-Example workflow file here : workflows/mesh_audit.json
-
-
-## Contributing
-
-Contributions welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/your-feature`
-3. Commit changes: `git commit -m "feat: describe your change"`
-4. Push to branch: `git push origin feature/your-feature`
-5. Open a Pull Request
-
-
-See [LICENSE](LICENSE) file for full details.
+Forked from [krishnancr/ComfyUI-Pulse-MeshAudit](https://github.com/krishnancr/ComfyUI-Pulse-MeshAudit).
 
 ## Citing this Work
-    If you use this node in your YouTube videos or commercial workflows, please include a link to this repo and credit it as: "Pulse - MeshAudit by Krishnan Ramachandran"
+
+If you use this node in your YouTube videos or commercial workflows, please include a link to the upstream repo and credit it as: "Pulse - MeshAudit by Krishnan Ramachandran"
